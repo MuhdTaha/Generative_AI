@@ -1,3 +1,8 @@
+# --------------------------------------
+# Author: Muhammad Taha
+# Project 1: Knowledge Graph for Automated Resume Screening
+# --------------------------------------
+
 import os
 import PyPDF2
 from google import genai
@@ -71,7 +76,7 @@ def get_all_relationship_types(driver):
         return [record["relationshipType"] for record in results]
 
 # --------------------------------------
-# Gemini 1.5 Pro LLM Call
+# Gemini LLM Call
 # --------------------------------------
 def call_gemini(prompt: str) -> str:
     client = genai.Client()
@@ -102,10 +107,9 @@ def main():
             full_text = extract_text_from_pdf(pdf_path)
 
             # Generate root_file_name automatically from filename
-            # Example: "Ada_Resume.pdf" -> "Ada Resume"
             root_file_name = os.path.splitext(filename)[0].replace("_", " ")
 
-            print(f"\nProcessing '{filename}' -> Root Entity/File Name: '{root_file_name}'")
+            print(f"\nProcessing '{filename}' -> File Name: '{root_file_name}'")
 
             # --- Gemini LLM Call ---
             template = """
@@ -200,6 +204,7 @@ def main():
                 sanitized_relationship = ''.join(filter(str.isalnum, relationship.replace(" ", "_"))).upper()
                 if not sanitized_relationship:
                     sanitized_relationship = "RELATED_TO"
+                
                 query = f"""
                 MATCH (a:Entity {{name: $source}}), (b:Entity {{name: $target}})
                 MERGE (a)-[r:{sanitized_relationship}]->(b)
@@ -217,7 +222,7 @@ def main():
 
     # Cleanup
     neo4j_conn.close()
-    print("✅ All resumes processed.")
+    print("\n✅ All resumes processed.")
 
 
 if __name__ == "__main__":

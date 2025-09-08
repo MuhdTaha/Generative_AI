@@ -22,7 +22,7 @@ The result is a rich, queryable knowledge graph that allows for complex question
 
 ## Technology Stack
 
-- **Language**: Python 3.x
+- **Language**: Python 3.11.1
 - **AI Model**: Google Gemini 2.5 Flash
 - **Database**: Neo4j Graph Database (can be run locally or on a cloud service like Neo4j Aura)
 - **Python Libraries**:
