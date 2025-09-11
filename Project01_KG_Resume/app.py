@@ -7,7 +7,6 @@
 import os
 import PyPDF2
 from google import genai
-from enum import Enum
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
 import json
@@ -23,6 +22,9 @@ load_dotenv()
 NEO4J_URI = os.getenv("NEO4J_URI")
 NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
+
+# --- Define a list of valid node labels for security and consistency ---
+VALID_LABELS = ["Person", "Skill", "Company", "University", "Project", "Certification", "Contact_Info", "Location", "Degree", "Job_Title"]
 
 # --------------------------------------
 # Helper function for label truncation
@@ -64,66 +66,54 @@ class Neo4jConnection:
             return [record["relationshipType"] for record in results]
     
     def fetch_graph_data(self):
-        """Fetches all nodes and relationships for visualization with improved styling."""
+        """Fetches all nodes and relationships for visualization with improved styling based on labels."""
         query = "MATCH (n) OPTIONAL MATCH (n)-[r]->(m) RETURN n, r, m"
         nodes = {}
-        edges = set() # Use a set to avoid duplicate edges
+        edges = set() 
 
-        # Define colors for different node labels for better visual distinction
         label_colors = {
-            "File": "#FF6347",    # Tomato Red
-            "Resume": "#4682B4",  # Steel Blue
-            "Entity": "#32CD32",  # Lime Green
-            "DEFAULT": "#808080"  # Grey
+            "Person": "#FF6347",      # Tomato Red
+            "Company": "#4682B4",     # Steel Blue
+            "Skill": "#32CD32",       # Lime Green
+            "University": "#FFD700",  # Gold
+            "Project": "#6A5ACD",      # Slate Blue
+            "Job_Title": "#40E0D0",   # Turquoise
+            "File": "#D3D3D3",        # Light Grey
+            "DEFAULT": "#808080"      # Grey
         }
 
         with self.driver.session(database=self.database) as session:
             results = session.run(query)
             for record in results:
-                # Process the source node
-                source_node = record["n"]
-                if source_node.element_id not in nodes:
-                    full_name = source_node.get("name", "Unknown")
-                    short_name = truncate_label(full_name)
-                    node_labels = list(source_node.labels)
-                    primary_label = next((label for label in ["File", "Resume"] if label in node_labels), "Entity")
-                    color = label_colors.get(primary_label, label_colors["DEFAULT"])
-                    size = 25 if primary_label in ["File", "Resume"] else 15
-
-                    nodes[source_node.element_id] = Node(id=source_node.element_id, 
-                                                         label=short_name, 
-                                                         title=full_name,
-                                                         size=size,
-                                                         color=color,
-                                                         font={'color': 'white', 'size': 12})
-
-                # Process relationship and target node if they exist
-                if record["r"] is not None and record["m"] is not None:
-                    target_node = record["m"]
-                    relationship = record["r"]
-
-                    if target_node.element_id not in nodes:
-                        full_name = target_node.get("name", "Unknown")
+                for node_type in ["n", "m"]:
+                    node_record = record[node_type]
+                    if node_record and node_record.element_id not in nodes:
+                        full_name = node_record.get("name", "Unknown")
                         short_name = truncate_label(full_name)
-                        node_labels = list(target_node.labels)
-                        primary_label = next((label for label in ["File", "Resume"] if label in node_labels), "Entity")
-                        color = label_colors.get(primary_label, label_colors["DEFAULT"])
-                        size = 25 if primary_label in ["File", "Resume"] else 15
+                        node_labels = list(node_record.labels)
                         
-                        nodes[target_node.element_id] = Node(id=target_node.element_id, 
-                                                             label=short_name,
-                                                             title=full_name,
-                                                             size=size,
-                                                             color=color,
-                                                             font={'color': 'white', 'size': 12})
-                    
-                    # Add a unique edge tuple to the set
-                    edge_tuple = (source_node.element_id, target_node.element_id, relationship.type)
+                        # Determine primary label for coloring and sizing
+                        primary_label = next((label for label in VALID_LABELS if label in node_labels), 
+                                             next(iter(node_labels), "DEFAULT"))
+
+                        color = label_colors.get(primary_label, label_colors["DEFAULT"])
+                        size = 25 if primary_label == "Person" else 15
+
+                        nodes[node_record.element_id] = Node(id=node_record.element_id, 
+                                                            label=short_name, 
+                                                            title=full_name,
+                                                            size=size,
+                                                            color=color,
+                                                            font={'color': 'white', 'size': 12})
+                
+                if record["r"] is not None and record["m"] is not None:
+                    source_id = record["n"].element_id
+                    target_id = record["m"].element_id
+                    rel_type = record["r"].type
+                    edge_tuple = (source_id, target_id, rel_type)
                     edges.add(edge_tuple)
 
-        # Convert the set of edge tuples to Edge objects with styling
         edge_objects = [Edge(source=s, target=t, label=l, font={'color': 'white', 'size': 8}) for s, t, l in edges]
-        
         return list(nodes.values()), edge_objects
 
 # --------------------------------------
@@ -134,14 +124,14 @@ def extract_text_from_pdf(path: str) -> str:
     with open(path, "rb") as file:
         reader = PyPDF2.PdfReader(file)
         for page in reader.pages:
-            text += page.extract_text()
+            text += page.extract_text() or ""
     return text
 
 def call_gemini(prompt: str) -> str:
     try:
         client = genai.Client()
         response = client.models.generate_content(
-            model="models/gemini-1.5-flash",
+            model="models/gemini-2.5-flash",
             contents=prompt
         )
         return response.text.strip().replace("```json", "").replace("```", "")
@@ -153,36 +143,37 @@ def call_gemini(prompt: str) -> str:
 # Core Processing Logic
 # --------------------------------------
 def process_and_ingest_resume(neo4j_conn, full_text, filename, all_relationships):
-    # (This function remains the same as your previous version)
     root_file_name = os.path.splitext(filename)[0].replace("_", " ")
 
     template = """
-    IMPORTANT: Ensure your output is valid JSON with all keys and string values enclosed in double quotes.
-    You are a document parser specialized in resumes. Your task is to analyze the given resume and extract key information 
-    to construct a knowledge graph representing the person’s profile.
-
-    Your output must **always** include the person’s name as the root entity, and all entities must be connected directly
-    or indirectly to this root entity. If a relationship is missing, create a generic connection to the root entity.
+    IMPORTANT: Ensure your output is valid JSON. All keys and string values must be in double quotes.
+    You are an expert data extractor specializing in resumes. Your task is to analyze the resume text and convert it into a structured knowledge graph.
 
     - Document Text: {text}
-    - Existing Relationships: {all_relationships}
+    - Existing Relationship Types: {all_relationships}
 
-    Follow this schema:
-    - Entities: Person Name, Contact Info, Education, Work Experience, Skills, Projects, etc.
-    - Triples: Use clear relationships like HAS_EDUCATION, HAS_SKILL, WORKED_AT, etc.
-    
+    Instructions:
+    1.  Identify the single main person (the candidate) in the resume. This is your root entity.
+    2.  Extract all other relevant entities, such as skills, companies, job titles, universities, degrees, etc.
+    3.  **Crucially, assign a label to each entity.** Use one of the following valid labels: {valid_labels}.
+    4.  Generate relationships (triples) connecting these entities. All entities must eventually connect back to the root 'Person' entity.
+
     Return the output in this exact JSON format:
     {{
-        "entities": ["Entity 1", "Entity 2", ...],
-        "triples": [
-            ["source_entity", "RELATIONSHIP_TYPE", "target_entity"],
-            ...
-        ],
-        "root_entity_name": "Person Name"
+      "root_entity_name": "Full Name of the Candidate",
+      "entities": [
+        {{"name": "Entity Name 1", "label": "EntityLabel1"}},
+        {{"name": "Entity Name 2", "label": "EntityLabel2"}},
+        ...
+      ],
+      "triples": [
+        ["source_entity_name", "RELATIONSHIP_TYPE", "target_entity_name"],
+        ...
+      ]
     }}
     """
 
-    final_prompt = template.format(text=full_text, all_relationships=all_relationships)
+    final_prompt = template.format(text=full_text, all_relationships=all_relationships, valid_labels=VALID_LABELS)
     gemini_output = call_gemini(final_prompt)
 
     if not gemini_output:
@@ -196,41 +187,50 @@ def process_and_ingest_resume(neo4j_conn, full_text, filename, all_relationships
         st.code(gemini_output)
         return
 
-    combined_entities = set(response_dict.get("entities", []))
-    combined_triples = response_dict.get("triples", [])
-    root_entity_node = response_dict.get("root_entity_name") or root_file_name
+    entities = response_dict.get("entities", [])
+    triples = response_dict.get("triples", [])
+    root_entity_name = response_dict.get("root_entity_name")
 
-    connected_entities = {root_entity_node}
-    for s, _, t in combined_triples:
-        connected_entities.add(s)
-        connected_entities.add(t)
+    if not root_entity_name or not entities or not triples:
+        st.warning(f"AI output for {filename} was missing key information (root entity, entities, or triples). Skipping.", icon="⚠️")
+        return
     
-    for entity in combined_entities:
-        if entity not in connected_entities:
-            combined_triples.append([root_entity_node, "RELATED_TO", entity])
+    # Ingest all entities with their specific labels
+    for entity in entities:
+        name = entity.get("name")
+        label = entity.get("label")
+        # Security check: Only use labels from our predefined valid list
+        if name and label in VALID_LABELS:
+            # The root entity is special - we ensure it is labeled as 'Person'
+            if name == root_entity_name:
+                query = "MERGE (p:Person {name: $name})"
+            else:
+                query = f"MERGE (e:{label} {{name: $name}})"
+            neo4j_conn.write_transaction(query, {"name": name})
 
-    neo4j_conn.write_transaction("MERGE (f:File {name: $file_name})", {"file_name": root_file_name})
-    belongs_query = """
-    MERGE (r:Resume {name: 'Resume'})
-    MERGE (f:File {name: $file_name})
-    MERGE (f)-[:BELONGS_TO]->(r)
-    """
-    neo4j_conn.write_transaction(belongs_query, {"file_name": root_file_name})
-
-    for entity in combined_entities:
-        neo4j_conn.write_transaction("MERGE (e:Entity {name: $name})", {"name": entity})
-
-    for source, relationship, target in combined_triples:
+    # Ingest all relationships
+    for source, relationship, target in triples:
         sanitized_relationship = ''.join(filter(str.isalnum, relationship.replace(" ", "_"))).upper()
-        if not sanitized_relationship: sanitized_relationship = "RELATED_TO"
-        query = f"MATCH (a:Entity {{name: $source}}), (b:Entity {{name: $target}}) MERGE (a)-[r:{sanitized_relationship}]->(b)"
+        if not sanitized_relationship: 
+            sanitized_relationship = "RELATED_TO"
+        
+        query = f"""
+        MATCH (a {{name: $source}})
+        MATCH (b {{name: $target}})
+        MERGE (a)-[:{sanitized_relationship}]->(b)
+        """
         neo4j_conn.write_transaction(query, {"source": source, "target": target})
 
-    root_entity_query = "MATCH (b:Entity {name: $root_name}), (f:File {name: $file_name}) MERGE (b)-[:HAS_FILE]->(f)"
-    neo4j_conn.write_transaction(root_entity_query, {"root_name": root_entity_node, "file_name": root_file_name})
+    # Link the Person node to a File node representing this resume
+    neo4j_conn.write_transaction("MERGE (f:File {name: $file_name})", {"file_name": root_file_name})
+    root_entity_query = """
+    MATCH (p:Person {name: $root_name})
+    MATCH (f:File {name: $file_name})
+    MERGE (p)-[:HAS_FILE]->(f)
+    """
+    neo4j_conn.write_transaction(root_entity_query, {"root_name": root_entity_name, "file_name": root_file_name})
 
-    st.success(f"Processed '{filename}'. Added {len(combined_entities)} entities and {len(combined_triples)} relationships.", icon="✅")
-
+    st.success(f"Processed '{filename}'. Added {len(entities)} entities and {len(triples)} relationships.", icon="✅")
 
 # --------------------------------------
 # Streamlit UI
@@ -320,12 +320,11 @@ footer_html = """
 <div style="text-align: center; margin-top: 20px;">
     <p>Developed by <strong>Muhammad Taha</strong></p>
     <a href="https://www.linkedin.com/in/muhdtaha/" target="_blank" style="margin: 0 10px;">
-        <img src="https://static.vecteezy.com/system/resources/previews/018/930/480/non_2x/linkedin-logo-linkedin-icon-transparent-free-png.png" alt="LinkedIn" width="50" height="50">
+        <img src="https://cdn1.iconfinder.com/data/icons/logotypes/32/circle-linkedin-512.png" alt="LinkedIn" width="50" height="50">
     </a>
     <a href="https://github.com/MuhdTaha" target="_blank" style="margin: 0 10px;">
-        <img src="https://freepnglogo.com/images/all_img/github-logo-white-stroke-2a6c.png" alt="GitHub" width="50" height="50">
+        <img src="https://img.icons8.com/m_sharp/512/FFFFFF/github.png" alt="GitHub" width="50" height="50">
     </a>
 </div>
 """
 st.markdown(footer_html, unsafe_allow_html=True)
-

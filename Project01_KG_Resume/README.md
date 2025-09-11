@@ -56,9 +56,6 @@ NEO4J_PASSWORD="your-neo4j-password"
 GOOGLE_API_KEY="your-google-ai-api-key"
 ```
 
-4. Create a resumes folder:
-   In the root of the project, create a folder named `resumes` and place the PDF files you want to process inside it.
-
 ## 🚀 Usage
 
 Run the Streamlit application from your terminal:
