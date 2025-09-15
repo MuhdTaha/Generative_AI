@@ -50,7 +50,7 @@ You must have the following installed on your system:
   - Download and installation instructions for Windows available [here](https://github.com/oschwartz10612/poppler-windows).
   - For Mac/Linux, you can use Homebrew (`brew install poppler`) or your system's package manager.
 - **Google Tesseract OCR**: Required for extracting text from scanned documents.
-  - **Download and installation instructions**
+  - Download and installation instructions available [here](https://github.com/tesseract-ocr/tesseract).
 
 ### 1. Clone the Repository
 
