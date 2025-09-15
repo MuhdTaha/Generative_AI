@@ -1,0 +1,9 @@
+streamlit
+python-dotenv
+google-generativeai
+pytesseract
+pdf2image
+langchain-community
+langchain-core
+langgraph
+PyPDF2
