@@ -1,4 +1,4 @@
-# 🧠 Reflection-Critic Agents for Efficient PDF Summarization
+# Project 3: Reflection-Critic Agents for Efficient PDF Summarization
 
 This project is an interactive Streamlit web application that uses a multi-agent system built with LangGraph to generate high-quality summaries of PDF documents. It features a "Summarizer" agent that creates an initial summary and a "Critic" agent that provides feedback for revision, ensuring a refined and accurate final output.
 
@@ -47,10 +47,10 @@ You must have the following installed on your system:
 
 - **Python 3.8+**
 - **Poppler**: Required for converting PDF pages to images.
-  - **Download and installation instructions for Windows**
+  - Download and installation instructions for Windows available [here](https://github.com/oschwartz10612/poppler-windows).
   - For Mac/Linux, you can use Homebrew (`brew install poppler`) or your system's package manager.
 - **Google Tesseract OCR**: Required for extracting text from scanned documents.
-  - **Download and installation instructions**
+  - Download and installation instructions available [here](https://github.com/tesseract-ocr/tesseract).
 
 ### 1. Clone the Repository
 
@@ -82,7 +82,7 @@ pip install -r requirements.txt
 Create a file named .env in the root of your project directory and add the following variables:
 
 ```bash
-GOOGLE_API_KEY="your_google_api_key_here"
+GEMINI_API_KEY="your_google_api_key_here"
 POPPLER_PATH="C:/path/to/your/poppler/bin"
 ```
 
