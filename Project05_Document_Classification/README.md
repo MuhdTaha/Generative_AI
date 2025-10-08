@@ -24,7 +24,7 @@ The project follows a two-stage process: **Training** and **Inference**.
 Place your collection of unlabeled documents into the `data/docs/` directory.
 
 ### **2. Pseudo-Labeling (AI)**
-The `train_model.py` script iterates through your documents. For each one, it calls the Gemini API to get a “pseudo-label,” confidence score, and explanation.  
+The `train_hybrid.py` script iterates through your documents. For each one, it calls the Gemini API to get a “pseudo-label,” confidence score, and explanation.  
 
 The results are saved to `data/labeled.csv`.
 
@@ -63,7 +63,7 @@ When a user uploads a new document:
 ├── 📄 app.py               # Streamlit web application
 ├── 📄 classify_ai.py        # Logic for classifying documents using Gemini API
 ├── 📄 hybrid_model.py      # Training and hybrid prediction logic
-├── 📄 train_model.py       # Script for pseudo-labeling and model training
+├── 📄 train_hybrid.py       # Script for pseudo-labeling and model training
 ├── 📁 data/
 │   ├── 📁 docs/             # <-- Place your raw documents here
 │   └── 📄 labeled.csv      # (Generated automatically)
@@ -106,7 +106,7 @@ Place your sample documents (`.pdf`, `.txt`, `.docx`) inside the `data/docs/` di
 ### **Step 2: Train the Hybrid Model**
 Run:
 ```bash
-python train_model.py
+python train_hybrid.py
 ```
 This will use Gemini to label your data and train the ML model.
 
@@ -122,4 +122,4 @@ A browser tab will open at **http://localhost:8501**, where you can upload docum
 
 - The more diverse your dataset, the better the model performance.
 - Ensure your `.env` file is correctly configured before running the app.
-- You can retrain the model anytime by re-running `train_model.py`.
+- You can retrain the model anytime by re-running `train_hybrid.py`.
