@@ -1,4 +1,4 @@
-# Project 2: GraphRAG-Powered Resume Q&A System
+# Project 02: GraphRAG-Powered Resume Q&A System
 
 This project is a Streamlit web application that serves as an intelligent Q&A system for resumes. It leverages a knowledge graph populated with resume data [(from Project 1)](https://github.com/MuhdTaha/Generative_AI/tree/main/Project01_KG_Resume) and uses a Retrieval-Augmented Generation (RAG) pipeline powered by Google's Gemini AI to answer natural language questions about the candidates.
 
