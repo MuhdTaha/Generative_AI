@@ -1,4 +1,4 @@
-# Project 3: Reflection-Critic Agents for Efficient PDF Summarization
+# Project 03: Reflection-Critic Agents for Efficient PDF Summarization
 
 This project is an interactive Streamlit web application that uses a multi-agent system built with LangGraph to generate high-quality summaries of PDF documents. It features a "Summarizer" agent that creates an initial summary and a "Critic" agent that provides feedback for revision, ensuring a refined and accurate final output.
 
